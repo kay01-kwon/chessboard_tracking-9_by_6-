@@ -14,7 +14,6 @@ find_package(OpenCV REQUIRED)
 
 add_message_files(
    FILES
-   position_publish.msg
  )
 
 
@@ -37,11 +36,8 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_executable(object_filter src/object_filter.cpp)
 add_executable(circle_tracker src/circle_tracker.cpp)
 add_executable(chessboard_tracker src/chessboard_tracker.cpp)
 
-
-target_link_libraries(object_filter ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(circle_tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(chessboard_tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
