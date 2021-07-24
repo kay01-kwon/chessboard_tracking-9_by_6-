@@ -41,6 +41,10 @@ class ChessboardTracker{
     cv::Mat rotation;
     cv::Mat R;
     std::vector<cv::Point3f> corners_info;
+
+    double theta;
+    double s[3];
+    double trace;
     float squareSize;
 };
 
@@ -61,7 +65,7 @@ void ChessboardTracker::initialization()
                                             0.098648);
 
     tf = (cv::Mat1d(3,3) << 0, 0, 1, 
-                            1, 0, 0,
+                            -1, 0, 0,
                             0, -1, 0);
 
     std::cout<<"camera matrix info\n";
@@ -136,8 +140,8 @@ void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
 
 
     cv::Rodrigues(rvec,R);
-    rotation = tf*R;
-    
+    //rotation = tf*R;
+    rotation = R;
     //std::cout<<R<<std::endl;
     //std::cout<<"\n";
     calcPose(position);
@@ -165,18 +169,60 @@ void ChessboardTracker::calcPose(double position[3])
     std::cout<<position[1]<<std::endl;
     std::cout<<position[2]<<std::endl;
     **/
-   std::cout<<"rotation matrix"<<std::endl;
-   std::cout<<rotation<<std::endl;
+   //std::cout<<"rotation matrix"<<std::endl;
+   //std::cout<<rotation<<std::endl;
 
-    tf.rotation.w = 1.0;
-    tf.rotation.x = 0.0;
-    tf.rotation.y = 0.0;
-    tf.rotation.z = 0.0;
+   double* Rotation = (double*) rotation.data;
+
+    trace = Rotation[0] + Rotation[4] +Rotation[8];
+    theta = acos((trace-1)/2.0);
+
+    double magnitude;
+
+   s[0] = (Rotation[7] - Rotation[5])/sin(theta)/2.0;
+   s[1] = (Rotation[2] - Rotation[6])/sin(theta)/2.0;
+   s[2] = (Rotation[3] - Rotation[1])/sin(theta)/2.0;
+
+    magnitude = sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2]);
+
+    s[0] = s[0]/magnitude;
+    s[1] = s[1]/magnitude;
+    s[2] = s[2]/magnitude;
     
+
+   double qx, qy, qz, qw;
+   double psi;
+
+   qw = cos(theta/2.0);
+   qx = sin(theta/2.0)*cos(s[0]);
+   qy = sin(theta/2.0)*cos(s[1]);
+   qz = sin(theta/2.0)*cos(s[2]);
+
+   if(theta ==0)      
+    {
+        qw = 1.0;
+        qx = 0.0;
+        qy = 0.0;
+        qz = 0.0;
+    }
 
     tf.translation.x = position[0];
     tf.translation.y = position[1];
     tf.translation.z = position[2];
+
+    tf.rotation.w = qw;
+    tf.rotation.x = qx;
+    tf.rotation.y = qy;
+    tf.rotation.z = qz;
+
+    psi = atan2(2.0*(qw*qz+qx*qy),(1-2.0*(qy*qy+qz*qz)));
+
+    //std::cout<<"rotation matrix"<<std::endl;
+    //std::cout<<rotation<<std::endl;
+    //std::cout<<"s: "<<sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2])<<std::endl;
+    //std::cout<<"s: "<<s[0]<<"\n"<<s[1]<<"\n"<<s[2]<<std::endl;
+
+    std::cout<<"yaw: "<<psi*180.0/3.141592<<std::endl;
 
     publisher_pose.publish(tf);
 }
