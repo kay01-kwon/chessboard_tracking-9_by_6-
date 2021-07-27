@@ -1,5 +1,5 @@
 # object_detection_2d
-This source code to take object detection from 2D and point out the position in 3D coordinate of chessboard from RealSense D435 camera under ROS platform.<br>
+This source code to take object detection from 2D and point out the position in 3D coordinate of chessboard(9 by 6) from RealSense D435 camera under ROS platform.<br>
  <br>
 Process to use this code: <br>
 
