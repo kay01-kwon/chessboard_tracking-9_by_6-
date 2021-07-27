@@ -8,4 +8,6 @@ Process to use this code: <br>
  $ rosrun opencv_object_tracking chessboard_tracking
 
 
+Subscribed toopic: /camera/color/image_raw
+
 Published topic: /chessboard_pose
