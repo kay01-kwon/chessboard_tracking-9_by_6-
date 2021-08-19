@@ -75,7 +75,7 @@ void Circle_Tracker::imageCallback(const ImageConstPtr& img_msg)
         std::cout<<"\n";
     }
 
-    imshow(windowName1,gray);
+    imshow(windowName1,cv_ptr->image);
 
     //imshow("Test HSV Filtered",hsv_img_filtered);
     //imshow("HSV",hsv_img);

@@ -3,6 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <opencv2/calib3d.hpp>
+#include <opencv2/aruco.hpp>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/Transform.h>
 #include <iostream>
@@ -21,12 +22,12 @@ using Eigen::Matrix3d;
 
 static const std::string windowName1 = "Gray Image";
 
-class ChessboardTracker{
+class ArucoTracker{
     
     public:
     void initialization();
     void imageCallback(const ImageConstPtr& img_msg);
-    void calcPose(double position[3]);
+    void calcPose();
     void subscriberSetting();
     void publisherSetting();
     Matrix3d getRot(double yaw);
@@ -37,65 +38,49 @@ class ChessboardTracker{
     ros::Publisher publisher_pose;
     image_transport::Subscriber image_subscriber;
 
-    cv::Size boardSize;
-    cv::Mat camera_matrix;
-    cv::Mat distortionCoeffs;
+    double markerSize;
+
+    cv::Matx33f K;
+    cv::Vec<float,5> k;
+    
     cv::Mat rvec;
     cv::Mat tvec;
-    cv::Mat tf;
+    Vector3d position;
+    Matrix3d tf;
     cv::Mat translation;
     cv::Mat rotation;
     cv::Mat R;
-    std::vector<cv::Point3f> corners_info;
 
     double theta;
     double s[3];
     double trace;
     float squareSize;
+
     Vector3d position_;
     Matrix3d R_;
 };
 
-void ChessboardTracker::initialization()
+void ArucoTracker::initialization()
 {
-    squareSize = 0.022;
-    boardSize.width = 9;
-    boardSize.height = 6;
 
-    camera_matrix = (cv::Mat1d(3,3) << 448.06375, 0, 276.77853, 
-                                        0, 446.82352, 222.37746, 
-                                        0, 0, 1);
-    
-    distortionCoeffs = (cv::Mat1d(1,5) << 0.0587196, 
-                                            -0.0542081, 
-                                            -0.000444068, 
-                                            -0.00850087, 
-                                            0.098648);
+    K << 610.84985, 0, 360.66794, 0, 609.7962, 240.23146, 0, 0, 1;
+    k << 0.0923153, -0.163137, -0.00135823, 0.0230248, 0.103919;
 
-    tf = (cv::Mat1d(3,3) << 0, 0, 1, 
-                            -1, 0, 0,
-                            0, -1, 0);
+    markerSize = 0.115; // 115 mm
+
+    tf << 0, 0, 1, 
+        -1, 0, 0,
+        0, -1, 0;
 
     std::cout<<"camera matrix info\n";
-    std::cout<<camera_matrix<<std::endl;
+    std::cout<<K<<std::endl;
 
     std::cout<<"distortion coefficients\n";
-    std::cout<<distortionCoeffs<<std::endl;
-
-
-
-    for(int i = 0; i < boardSize.height; i++)
-        for(int j = 0; j < boardSize.width; j++)
-            corners_info.push_back(cv::Point3f(float(j*squareSize),
-                                                float(i*squareSize),
-                                                0));
-
-    //std::cout<<"Corner info(Global coordinate):\n";
-    //std::cout<<corners_info<<std::endl;
+    std::cout<<k<<std::endl;
 
 }
 
-void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
+void ArucoTracker::imageCallback(const ImageConstPtr& img_msg)
 {
     cv_bridge::CvImagePtr cv_ptr;
 
@@ -110,72 +95,55 @@ void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
     }
 
     cv::Mat img;
-
     cv::cvtColor(cv_ptr->image,img,cv::IMREAD_COLOR);
-    std::vector<cv::Point2f> detected_corners;
-
     cv::imshow("original image",img);
 
-    bool found = cv::findChessboardCorners(cv_ptr->image, boardSize,detected_corners);
+    std::vector<int> markerIds;
+    std::vector<std::vector<cv::Point2f> > markerCorners, rejectedCandidates;
 
-//    cv::imshow("image",img);
+    cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_7X7_100);
+    cv::aruco::detectMarkers(img,dictionary,markerCorners,markerIds,parameters,rejectedCandidates);
+
+    cv::aruco::drawDetectedMarkers(img,markerCorners,markerIds);
+
+    if(markerIds.size()>0)
+    {
+        cv::aruco::estimatePoseSingleMarkers(markerCorners,markerSize,K,k,rvec,tvec);
+        cv::aruco::drawAxis(img,K,k,rvec,tvec,0.1);
+        std::cout<<tvec.size()<<std::endl;
+
+        double* p = (double*) tvec.data;
+        Vector3d p_; 
+        p_ << p[0], p[1], p[2];
+        position_ = tf*p_;
+
+        //std::cout<<"\n";
+        //translation = tf*tvec;
+        //double* position = (double*) translation.data;
+
+        cv::Rodrigues(rvec,R);
+        rotation = R;
+        calcPose();
+    }
 
 
-    if(found == false){
+    if(markerIds.size() == 0){
         std::cout<<"Not detected\n";
         return;
     }
 
-
-    //cv::drawChessboardCorners(img, boardSize,detected_corners,found);
-    cv::solvePnP(corners_info,
-    detected_corners,
-    camera_matrix,
-    distortionCoeffs,
-    rvec,tvec);
-
-    translation = tf*tvec;
-
-    double* position = (double*) translation.data;
-
-    //std::cout<<"\n";
-
-
-    std::vector<cv::Point3f> obj_pts;
-    obj_pts.push_back(cv::Point3f(0,0,0));
-    obj_pts.push_back(cv::Point3f(0.066,0,0));
-    obj_pts.push_back(cv::Point3f(0,0.066,0));
-    obj_pts.push_back(cv::Point3f(0,0,0.066));
-
-
-
-    cv::Rodrigues(rvec,R);
-    rotation = R;
-    calcPose(position);
-
-    std::vector<cv::Point2f> imagePoints;
-
-    cv::projectPoints(obj_pts,rvec,tvec,
-    camera_matrix,distortionCoeffs,imagePoints);
-
-    cv::line(img,imagePoints.at(0),imagePoints.at(1),cv::Scalar(0,0,255),5,8,0);
-    cv::line(img,imagePoints.at(0),imagePoints.at(2),cv::Scalar(0,255,0),5,8,0);
-    cv::line(img,imagePoints.at(0),imagePoints.at(3),cv::Scalar(255,0,0),5,8,0);
-
-    cv::imshow("detected coordinate",img);
-
+    cv::imshow("image",img);
     cv::waitKey(1);
+
 }
 
-void ChessboardTracker::calcPose(double position[3])
+void ArucoTracker::calcPose()
 {
     Transform tf;
 
 
     double* Rotation = (double*) rotation.data;
-
-
-    position_ << position[0], position[1], position[2];
 
     trace = Rotation[0] + Rotation[4] + Rotation[8];
     theta = acos((trace-1.0)/2.0);
@@ -239,18 +207,18 @@ void ChessboardTracker::calcPose(double position[3])
     publisher_pose.publish(tf);
 }
 
-void ChessboardTracker::subscriberSetting()
+void ArucoTracker::subscriberSetting()
 {
     image_transport::ImageTransport it(nh);
-    image_subscriber = it.subscribe("/camera/color/image_raw",1,&ChessboardTracker::imageCallback,this);
+    image_subscriber = it.subscribe("/camera/color/image_raw",1,&ArucoTracker::imageCallback,this);
 }
 
-void ChessboardTracker::publisherSetting()
+void ArucoTracker::publisherSetting()
 {
-    publisher_pose = nh.advertise<Transform>("chess_board_pose",1);
+    publisher_pose = nh.advertise<Transform>("aruco_pose",1);
 }
 
-Matrix3d ChessboardTracker::getRot(double yaw)
+Matrix3d ArucoTracker::getRot(double yaw)
 {
     Matrix3d rot;
     rot<<1, 0, 0,
