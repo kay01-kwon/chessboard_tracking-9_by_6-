@@ -100,9 +100,7 @@ void pid_control::cmd_vel_calculation()
 {
     a_cmd = Kp*p_err;
     a_cmd = - a_cmd;
-    //v_cmd = v_cmd_prev + a_cmd*dt;
-    //v_cmd_prev = v_cmd;
-    v_cmd = Kp*p_err;
+    v_cmd = Kp*p_err + Ki*integral_p_err;
     v_cmd = -v_cmd;
     v_cmd = getRotMat(yaw)*v_cmd;
 }
