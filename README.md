@@ -1,5 +1,5 @@
 # Chessboard and aruco marker tracking
-<img src="opencv_object_tracking/image/detected_coordinate.png" width="680" height="480" />
+
 # Pose estimation through checker board marker
 <img src="opencv_object_tracking/image/detected_coordinate.png" width="680" height="480" />
 
