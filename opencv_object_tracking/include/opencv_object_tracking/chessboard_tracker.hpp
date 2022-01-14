@@ -254,7 +254,7 @@ void ChessboardTracker::calcPose(double position[3])
     tf.translation.z = position_(2);
     
     std::cout<<"Position (m): "<<"  "<<position_(0)<<"  "<<position_(1)<<"  "<<position_(2)<<std::endl;
-    
+    std::cout<<"Yaw (deg)"<<yaw*180.0/M_PI<<std::endl;
     //std::cout<<"rotation matrix"<<std::endl;
     //std::cout<<rotation<<std::endl;
     //std::cout<<trace<<std::endl;
