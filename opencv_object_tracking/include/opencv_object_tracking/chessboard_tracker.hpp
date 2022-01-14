@@ -36,7 +36,7 @@ class ChessboardTracker{
     void subscriberSetting();
     void publisherSetting();
     Matrix3d getRot(double yaw);
-
+    void angleNormalizer(double & yaw);
 
     private:
     ros::NodeHandle nh;
@@ -69,6 +69,7 @@ class ChessboardTracker{
     Matrix3d R_;
 
     double qx, qy, qz, qw;
+    double yaw;
 
 };
 
@@ -190,6 +191,8 @@ void ChessboardTracker::calcPose(double position[3])
     {
         listener.lookupTransform("map","base_footprint",ros::Time(0),transform);
         tf::Quaternion quat = transform.getRotation();
+        yaw = tf::getYaw(quat);
+        angleNormalizer(yaw);
         qx = quat.x();
         qy = quat.y();
         qz = quat.z();
@@ -202,12 +205,12 @@ void ChessboardTracker::calcPose(double position[3])
         ros::Duration(1.0).sleep();
     }
 
-/**
+
     double* Rotation = (double*) rotation.data;
 
 
     position_ << position[0], position[1], position[2];
-
+/**
     trace = Rotation[0] + Rotation[4] + Rotation[8];
     theta = acos((trace-1.0)/2.0);
 
@@ -289,4 +292,9 @@ Matrix3d ChessboardTracker::getRot(double yaw)
         0, sin(yaw), cos(yaw);
 
     return rot;
+}
+
+void ChessboardTracker::angleNormalizer(double &yaw)
+{
+    yaw = atan2(sin(yaw),cos(yaw));
 }
