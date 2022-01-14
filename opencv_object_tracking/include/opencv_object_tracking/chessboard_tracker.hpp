@@ -11,7 +11,9 @@
 #include <sensor_msgs/image_encodings.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
-#include <std_msgs/Int8.h>
+
+#include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
 
 using sensor_msgs::ImageConstPtr;
 using sensor_msgs::PointCloud2;
@@ -19,6 +21,9 @@ using std::vector;
 using geometry_msgs::Transform;
 using Eigen::Vector3d;
 using Eigen::Matrix3d;
+
+using tf::TransformListener;
+using tf::StampedTransform;
 
 static const std::string windowName1 = "Gray Image";
 
@@ -35,8 +40,11 @@ class ChessboardTracker{
 
     private:
     ros::NodeHandle nh;
+    tf::TransformListener listener;
+    tf::StampedTransform transform;
+
     ros::Publisher publisher_pose;
-    ros::Publisher publisher_task_flag;
+
     image_transport::Subscriber image_subscriber;
 
     cv_bridge::CvImagePtr cv_ptr;
@@ -60,6 +68,7 @@ class ChessboardTracker{
     Vector3d position_;
     Matrix3d R_;
 
+    double qx, qy, qz, qw;
 
 };
 
@@ -130,6 +139,7 @@ void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
         return;
     }
 
+    
 
     //cv::drawChessboardCorners(img, boardSize,detected_corners,found);
     cv::solvePnP(corners_info,
@@ -176,6 +186,23 @@ void ChessboardTracker::calcPose(double position[3])
     Transform tf;
 
 
+    try
+    {
+        listener.lookupTransform("map","base_footprint",ros::Time(0),transform);
+        tf::Quaternion quat = transform.getRotation();
+        qx = quat.x();
+        qy = quat.y();
+        qz = quat.z();
+        qw = quat.w();
+
+    }
+    catch(const tf::TransformException& ex)
+    {
+        ROS_ERROR("%s",ex.what());
+        ros::Duration(1.0).sleep();
+    }
+
+/**
     double* Rotation = (double*) rotation.data;
 
 
@@ -190,7 +217,6 @@ void ChessboardTracker::calcPose(double position[3])
     s[1] = (Rotation[2] - Rotation[6])/sin(theta)/2.0;
     s[2] = (Rotation[3] - Rotation[1])/sin(theta)/2.0;
     
-    double qx, qy, qz, qw;
     double pitch;
 
     qw = cos(theta/2.0);
@@ -217,14 +243,15 @@ void ChessboardTracker::calcPose(double position[3])
     pitch = asin(2*(qw*qy-qz*qx));
     roll = atan2(2*(qw*qx+qy*qz),1.0-(qx*qx+qy*qy));
     yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
-
-    position_ = getRot(yaw)*position_;
+**/
+//    position_ = getRot(yaw)*position_;
 
     tf.translation.x = position_(0);
     tf.translation.y = position_(1);
     tf.translation.z = position_(2);
     
-
+    std::cout<<"Position (m): "<<"  "<<position_(0)<<"  "<<position_(1)<<"  "<<position_(2)<<std::endl;
+    
     //std::cout<<"rotation matrix"<<std::endl;
     //std::cout<<rotation<<std::endl;
     //std::cout<<trace<<std::endl;
@@ -233,10 +260,10 @@ void ChessboardTracker::calcPose(double position[3])
 
     //std::cout<<"s: "<<s[0]<<"\n"<<s[1]<<"\n"<<s[2]<<std::endl;
     //std::cout<<sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2])<<std::endl;
-    std::cout<<"roll: "<<yaw*180.0/3.14159<<"  ";
-    std::cout<<"pitch: "<<roll*180.0/3.141592<<"  ";
+    //std::cout<<"roll: "<<yaw*180.0/3.14159<<"  ";
+    //std::cout<<"pitch: "<<roll*180.0/3.141592<<"  ";
     
-    std::cout<<"yaw: "<<pitch*180.0/3.141592<<std::endl;
+    //std::cout<<"yaw: "<<pitch<<std::endl;
 
 
 

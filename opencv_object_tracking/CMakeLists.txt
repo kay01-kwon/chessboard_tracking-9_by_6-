@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   cv_bridge
   image_transport
+  tf
 )
 find_package(OpenCV REQUIRED)
 
@@ -41,12 +42,12 @@ include_directories(
 
 add_executable(object_filter src/object_filter.cpp)
 add_executable(circle_tracker src/circle_tracker.cpp)
-add_executable(chessboard_pose src/chessboard_tracker.cpp)
+add_executable(chessboard_tracker src/chessboard_tracker.cpp)
 add_executable(aruco_tracker src/aruco_tracker.cpp)
 add_executable(chess_pid_control src/chessboard_pid.cpp include/opencv_object_tracking/chessboard_pid.cpp)
 
 target_link_libraries(object_filter ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(circle_tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
-target_link_libraries(chessboard_pose ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(chessboard_tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(aruco_tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(chess_pid_control ${catkin_LIBRARIES})

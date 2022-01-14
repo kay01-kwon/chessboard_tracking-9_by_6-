@@ -1,0 +1,12 @@
+<launch>
+  <node pkg="opencv_object_tracking" type="chess_pid_control" name="chessboard_pi"/>
+    <param name="Kp_xy" type="double" value="5.0"/>
+    <param name="Kp_yaw" type="double" value="1.0"/>
+
+    <param name="Kd_xy" type="double" value="0"/>
+    <param name="Kd_yaw" type="double" value="0"/>
+
+    <param name="Ki_xy" type="double" value="0.001"/>
+    <param name="Ki_yaw" type="double" value="0"/>
+
+</launch>

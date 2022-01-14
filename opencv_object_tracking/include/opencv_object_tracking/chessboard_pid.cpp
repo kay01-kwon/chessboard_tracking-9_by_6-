@@ -3,7 +3,7 @@
 // Constructor
 pid_control::pid_control()
 {
-    goal_pose << 0.350, 0.050, 0;
+    goal_pose << 0.170, -0.050, 0;
     
     p_err.setZero();
     p_err_prev.setZero();
@@ -61,38 +61,31 @@ pid_control::pid_control()
 
     cout<<"Publisher setup"<<endl;
     
-    publisher_cmd_vel = nh_.advertise<vel>("/input_msgs",1);
-    publisher_task_flag = nh_.advertise<std_msgs::Int8>("/task_flag/to",1);
+    publisher_cmd_vel = nh_.advertise<vel>("/input_msg",1);
+    publisher_task_flag = nh_.advertise<std_msgs::Int8>("/chessboard_pi/task_flag",1);
 
     cout<<"Subscriber setup"<<endl;
 
     subscriber_pose = nh_.subscribe("/chess_board_pose",1,&pid_control::callback_pose,this);
-    subscriber_control_enable = nh_.subscribe("/task_flag/from",1,&pid_control::callback_control_enable,this);
+    subscriber_control_enable = nh_.subscribe("/chessboard_pi/task_flag",1,&pid_control::callback_control_enable,this);
 }
 
 void pid_control::callback_pose(const geometry_msgs::TransformConstPtr& pose_msg)
 {
-    std_msgs::Int8 task_flag;
 
     qw = pose_msg->rotation.w;
     qx = pose_msg->rotation.x;
     qy = pose_msg->rotation.y;
     qz = pose_msg->rotation.z;
 
-    yaw = asin(2*(qw*qy-qz*qx));
+    yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
 
     chessboard_pose << (pose_msg->translation.x),
                         (pose_msg->translation.y),
-                        -yaw;
+                        yaw;
     
-    if(control_enable == inactive)
-        integral_p_err.setZero();
-    
-    if(control_enable != inactive || control_enable != success || control_enable == critical_error)
+    if(control_enable != success && control_enable == use_now)
         cmd_vel_publish();
-
-    task_flag.data = control_enable;
-    publisher_task_flag.publish(task_flag);
 }
 
 void pid_control::callback_control_enable(const std_msgs::Int8ConstPtr& control_msg)
@@ -103,13 +96,17 @@ void pid_control::callback_control_enable(const std_msgs::Int8ConstPtr& control_
 void pid_control::error_calculation()
 {
     p_err = goal_pose - chessboard_pose;
+    std::cout<<p_err<<std::endl;
     integral_p_err = (p_err + integral_p_err)*dt;
 }
 
 void pid_control::cmd_vel_calculation()
 {
     v_cmd = Kp*p_err + Ki*integral_p_err;
-    v_cmd = -v_cmd;
+    
+    v_cmd(0) = -v_cmd(0);
+    v_cmd(1) = -v_cmd(1);
+    
     v_cmd = getRotMat(yaw)*v_cmd;
 }
 
@@ -134,7 +131,7 @@ Vector4d pid_control::clamp(Vector4d motor_input)
 
 void pid_control::cmd_vel_publish()
 {
-
+    std_msgs::Int8 task_flag;
     vel motor_vel_pub;
 
     curr_time = ros::Time::now().toSec();
@@ -148,13 +145,15 @@ void pid_control::cmd_vel_publish()
     motor_vel_input = inverse_kinematics(v_cmd);
     motor_vel_input = clamp(motor_vel_input*gear_ratio*radps_to_rpm);
 
-    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.0017)
+    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.017)
     {
         control_enable = success;
         motor_vel_input.setZero();
         v_cmd.setZero();
-        v_cmd_prev.setZero();
+        integral_p_err.setZero();
         std::cout<<"Success"<<std::endl;
+        task_flag.data = control_enable;
+        publisher_task_flag.publish(task_flag);
     }
 
     motor_vel_pub.velocity[0] = (int) motor_vel_input(0);
