@@ -11,8 +11,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
-#include <sensor_msgs/Imu.h>
-
+#include <sensor_msgs/MagneticField.h>
 
 using sensor_msgs::ImageConstPtr;
 using sensor_msgs::PointCloud2;
@@ -20,8 +19,8 @@ using std::vector;
 using geometry_msgs::Transform;
 using Eigen::Vector3d;
 using Eigen::Matrix3d;
-using sensor_msgs::Imu;
-
+using sensor_msgs::MagneticField;
+using sensor_msgs::MagneticFieldConstPtr;
 
 static const std::string windowName1 = "Gray Image";
 
@@ -30,7 +29,7 @@ class ChessboardTracker{
     public:
     void initialization();
     void imageCallback(const ImageConstPtr& img_msg);
-    void imuCallback(const Imu & imu_msg);
+    void imuCallback(const MagneticFieldConstPtr & imu_msg);
     void calcPose(double position[3]);
     void subscriberSetting();
     void publisherSetting();
@@ -69,7 +68,9 @@ class ChessboardTracker{
     Vector3d position_;
     Matrix3d R_;
 
+    double mx, my;
     double qx, qy, qz, qw;
+    
     double yaw;
 
 };
@@ -110,6 +111,9 @@ void ChessboardTracker::initialization()
 
     //std::cout<<"Corner info(Global coordinate):\n";
     //std::cout<<corners_info<<std::endl;
+
+    qx = 0;
+    qy = 0;
 
 }
 
@@ -183,13 +187,15 @@ void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
     cv::waitKey(1);
 }
 
-void ChessboardTracker::imuCallback(const Imu & imu_msg)
+void ChessboardTracker::imuCallback(const MagneticFieldConstPtr & imu_msg)
 {
-    qw = imu_msg.orientation.w;
-    qx = imu_msg.orientation.x;
-    qy = imu_msg.orientation.y;
-    qz = imu_msg.orientation.z;
-    yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
+    mx = imu_msg->magnetic_field.x;
+    my = imu_msg->magnetic_field.y;
+
+    yaw = -atan2(my,mx);
+    qz = sin(yaw/2.0);
+    qw = cos(yaw/2.0);
+    
 }
 
 void ChessboardTracker::calcPose(double position[3])

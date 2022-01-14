@@ -66,6 +66,7 @@ pid_control::pid_control()
 
     cout<<"Subscriber setup"<<endl;
 
+    
     subscriber_pose = nh_.subscribe("/chess_board_pose",1,&pid_control::callback_pose,this);
     subscriber_control_enable = nh_.subscribe("/chessboard_pi/task_flag",1,&pid_control::callback_control_enable,this);
 }
