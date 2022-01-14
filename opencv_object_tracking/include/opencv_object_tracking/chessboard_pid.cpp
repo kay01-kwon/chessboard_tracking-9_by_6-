@@ -145,7 +145,7 @@ void pid_control::cmd_vel_publish()
     motor_vel_input = inverse_kinematics(v_cmd);
     motor_vel_input = clamp(motor_vel_input*gear_ratio*radps_to_rpm);
 
-    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.017)
+    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.0017)
     {
         control_enable = success;
         motor_vel_input.setZero();

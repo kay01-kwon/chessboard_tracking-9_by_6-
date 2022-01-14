@@ -11,9 +11,8 @@
 #include <sensor_msgs/image_encodings.h>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
+#include <sensor_msgs/Imu.h>
 
-#include <tf/transform_listener.h>
-#include <tf/transform_broadcaster.h>
 
 using sensor_msgs::ImageConstPtr;
 using sensor_msgs::PointCloud2;
@@ -21,9 +20,8 @@ using std::vector;
 using geometry_msgs::Transform;
 using Eigen::Vector3d;
 using Eigen::Matrix3d;
+using sensor_msgs::Imu;
 
-using tf::TransformListener;
-using tf::StampedTransform;
 
 static const std::string windowName1 = "Gray Image";
 
@@ -32,6 +30,7 @@ class ChessboardTracker{
     public:
     void initialization();
     void imageCallback(const ImageConstPtr& img_msg);
+    void imuCallback(const Imu & imu_msg);
     void calcPose(double position[3]);
     void subscriberSetting();
     void publisherSetting();
@@ -40,12 +39,14 @@ class ChessboardTracker{
 
     private:
     ros::NodeHandle nh;
-    tf::TransformListener listener;
-    tf::StampedTransform transform;
+    ros::Subscriber sub_imu;
+//    tf::TransformListener listener;
+//    tf::StampedTransform transform;
 
     ros::Publisher publisher_pose;
-
+    ros::Subscriber imu_subscriber;
     image_transport::Subscriber image_subscriber;
+
 
     cv_bridge::CvImagePtr cv_ptr;
     cv::Mat img;
@@ -182,58 +183,22 @@ void ChessboardTracker::imageCallback(const ImageConstPtr& img_msg)
     cv::waitKey(1);
 }
 
+void ChessboardTracker::imuCallback(const Imu & imu_msg)
+{
+    qw = imu_msg.orientation.w;
+    qx = imu_msg.orientation.x;
+    qy = imu_msg.orientation.y;
+    qz = imu_msg.orientation.z;
+    yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
+}
+
 void ChessboardTracker::calcPose(double position[3])
 {
     Transform tf;
-
-
-    try
-    {
-        listener.lookupTransform("map","base_footprint",ros::Time(0),transform);
-        tf::Quaternion quat = transform.getRotation();
-        yaw = tf::getYaw(quat);
-        angleNormalizer(yaw);
-        qx = quat.x();
-        qy = quat.y();
-        qz = quat.z();
-        qw = quat.w();
-
-    }
-    catch(const tf::TransformException& ex)
-    {
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-    }
-
-
     double* Rotation = (double*) rotation.data;
 
 
     position_ << position[0], position[1], position[2];
-/**
-    trace = Rotation[0] + Rotation[4] + Rotation[8];
-    theta = acos((trace-1.0)/2.0);
-
-    double magnitude;
-
-    s[0] = (Rotation[7] - Rotation[5])/sin(theta)/2.0;
-    s[1] = (Rotation[2] - Rotation[6])/sin(theta)/2.0;
-    s[2] = (Rotation[3] - Rotation[1])/sin(theta)/2.0;
-    
-    double pitch;
-
-    qw = cos(theta/2.0);
-    qx = sin(theta/2.0)*s[0];
-    qy = sin(theta/2.0)*s[1];
-    qz = sin(theta/2.0)*s[2];
-
-    if(theta == 0)      
-    {
-        qw = 1.0;
-        qx = 0.0;
-        qy = 0.0;
-        qz = 0.0;
-    }
 
     tf.rotation.w = qw;
     tf.rotation.x = qx;
@@ -241,34 +206,12 @@ void ChessboardTracker::calcPose(double position[3])
     tf.rotation.z = qz;
     
     
-    double roll, yaw;
-
-    pitch = asin(2*(qw*qy-qz*qx));
-    roll = atan2(2*(qw*qx+qy*qz),1.0-(qx*qx+qy*qy));
-    yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
-**/
-//    position_ = getRot(yaw)*position_;
-
     tf.translation.x = position_(0);
     tf.translation.y = position_(1);
     tf.translation.z = position_(2);
     
     std::cout<<"Position (m): "<<"  "<<position_(0)<<"  "<<position_(1)<<"  "<<position_(2)<<std::endl;
     std::cout<<"Yaw (deg)"<<yaw*180.0/M_PI<<std::endl;
-    //std::cout<<"rotation matrix"<<std::endl;
-    //std::cout<<rotation<<std::endl;
-    //std::cout<<trace<<std::endl;
-
-    //std::cout<<theta<<std::endl;
-
-    //std::cout<<"s: "<<s[0]<<"\n"<<s[1]<<"\n"<<s[2]<<std::endl;
-    //std::cout<<sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2])<<std::endl;
-    //std::cout<<"roll: "<<yaw*180.0/3.14159<<"  ";
-    //std::cout<<"pitch: "<<roll*180.0/3.141592<<"  ";
-    
-    //std::cout<<"yaw: "<<pitch<<std::endl;
-
-
 
     publisher_pose.publish(tf);
 }
@@ -277,6 +220,7 @@ void ChessboardTracker::subscriberSetting()
 {
     image_transport::ImageTransport it(nh);
     image_subscriber = it.subscribe("/camera/color/image_raw",1,&ChessboardTracker::imageCallback,this);
+    imu_subscriber = nh.subscribe("/mavros/imu/data",1,&ChessboardTracker::imuCallback,this);
 }
 
 void ChessboardTracker::publisherSetting()
