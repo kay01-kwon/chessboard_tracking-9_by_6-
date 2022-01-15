@@ -78,8 +78,8 @@ class ChessboardTracker{
 void ChessboardTracker::initialization()
 {
     squareSize = 0.022;
-    boardSize.width = 9;
-    boardSize.height = 6;
+    boardSize.width = 10;
+    boardSize.height = 7;
 
     camera_matrix = (cv::Mat1d(3,3) << 448.06375, 0, 276.77853, 
                                         0, 446.82352, 222.37746, 
@@ -192,7 +192,7 @@ void ChessboardTracker::imuCallback(const MagneticFieldConstPtr & imu_msg)
     mx = imu_msg->magnetic_field.x;
     my = imu_msg->magnetic_field.y;
 
-    yaw = -atan2(my,mx);
+    yaw = M_PI-atan2(my,mx);
     qz = sin(yaw/2.0);
     qw = cos(yaw/2.0);
     
@@ -206,6 +206,7 @@ void ChessboardTracker::calcPose(double position[3])
 
     position_ << position[0], position[1], position[2];
 
+    
     tf.rotation.w = qw;
     tf.rotation.x = qx;
     tf.rotation.y = qy;
@@ -226,7 +227,7 @@ void ChessboardTracker::subscriberSetting()
 {
     image_transport::ImageTransport it(nh);
     image_subscriber = it.subscribe("/camera/color/image_raw",1,&ChessboardTracker::imageCallback,this);
-    imu_subscriber = nh.subscribe("/mavros/imu/data",1,&ChessboardTracker::imuCallback,this);
+    imu_subscriber = nh.subscribe("/mavros/imu/mag",1,&ChessboardTracker::imuCallback,this);
 }
 
 void ChessboardTracker::publisherSetting()

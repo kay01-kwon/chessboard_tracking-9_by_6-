@@ -15,7 +15,7 @@ void OriPick::imu_callback(const sensor_msgs::MagneticFieldConstPtr& imu_msg)
     mx = imu_msg->magnetic_field.x;
     my = imu_msg->magnetic_field.y;
 
-    current_yaw = -atan2(my,mx);
+    current_yaw = atan2(my,mx);
     //current_yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
     angleNormalizer(current_yaw);
     printout();

@@ -3,7 +3,7 @@
 // Constructor
 pid_control::pid_control()
 {
-    goal_pose << 0.170, -0.050, 0;
+    goal_pose << 0.500, -0.0, 44.0*M_PI/180.0;
     
     p_err.setZero();
     p_err_prev.setZero();
@@ -79,11 +79,11 @@ void pid_control::callback_pose(const geometry_msgs::TransformConstPtr& pose_msg
     qy = pose_msg->rotation.y;
     qz = pose_msg->rotation.z;
 
-    yaw = atan2(2*(qw*qz+qx*qy),1-2*(qy*qy+qz*qz));
-
+    yaw = 2*asin(qz);
+    std::cout<<"Yaw: "<<yaw<<endl;
     chessboard_pose << (pose_msg->translation.x),
                         (pose_msg->translation.y),
-                        yaw;
+                        atan2(sin(yaw),cos(yaw));
     
     if(control_enable != success && control_enable == use_now)
         cmd_vel_publish();
@@ -98,17 +98,25 @@ void pid_control::error_calculation()
 {
     p_err = goal_pose - chessboard_pose;
     std::cout<<p_err<<std::endl;
+    std::cout<<"\n";
     integral_p_err = (p_err + integral_p_err)*dt;
 }
 
 void pid_control::cmd_vel_calculation()
 {
-    v_cmd = Kp*p_err + Ki*integral_p_err;
-    
+    v_cmd = p_err;
     v_cmd(0) = -v_cmd(0);
     v_cmd(1) = -v_cmd(1);
-    
-    v_cmd = getRotMat(yaw)*v_cmd;
+    v_cmd(2) = 0;
+
+    if(fabs(p_err(0)) < 0.010 && fabs(p_err(1)) < 0.010)
+    {
+        v_cmd = -p_err;
+        v_cmd(2) = p_err(2);
+    }
+//    v_cmd = getRotMat(yaw)*v_cmd;
+
+    std::cout<<"Velocity "<<v_cmd(0)<<"  "<<v_cmd(1)<<"  "<<v_cmd(2)<<endl;
 }
 
 Vector4d pid_control::inverse_kinematics(Vector3d vel_cmd)
@@ -146,7 +154,8 @@ void pid_control::cmd_vel_publish()
     motor_vel_input = inverse_kinematics(v_cmd);
     motor_vel_input = clamp(motor_vel_input*gear_ratio*radps_to_rpm);
 
-    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.0017)
+
+    if(fabs(p_err(0))<0.002 && fabs(p_err(1))<0.002 && fabs(p_err(2))<0.017)
     {
         control_enable = success;
         motor_vel_input.setZero();
